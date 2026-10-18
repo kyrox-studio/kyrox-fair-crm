@@ -42,6 +42,8 @@ export function FairStandPage({ mode, projectId, customerId, onBackToList }: Fai
     let cancelled = false;
     let unmount: (() => void) | undefined;
 
+    // Fair Stand proje açılış ölçümü "Düzenle"den sayar (projectOpenTiming EDITOR_ROUTE_MARK).
+    if (mode === "edit") performance.mark("fs:editor-route");
     void import("@fair-stand/mountFairStand.js").then(({ mountFairStand }) => {
       if (cancelled || !hostRef.current) return;
       unmount = mountFairStand(hostRef.current, {

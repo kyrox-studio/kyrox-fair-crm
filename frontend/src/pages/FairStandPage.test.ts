@@ -25,6 +25,13 @@ describe("FairStandPage standalone host", () => {
     expect(html).not.toContain("app-topbar");
   });
 
+  it("marks the edit route before loading Fair Stand so the open timing counts from Düzenle", () => {
+    const source = readFileSync(join(here, "FairStandPage.tsx"), "utf8");
+    const mark = source.indexOf('if (mode === "edit") performance.mark("fs:editor-route");');
+    expect(mark).toBeGreaterThan(-1);
+    expect(mark).toBeLessThan(source.indexOf('void import("@fair-stand/mountFairStand.js")'));
+  });
+
   it("mounts Fair Stand with catalog headers, project id, and capabilities", () => {
     const source = readFileSync(join(here, "FairStandPage.tsx"), "utf8");
     expect(source).toContain("catalogHeaders: buildApiHeaders()");
