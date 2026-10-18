@@ -578,6 +578,8 @@ main() {
 
   if [[ "${SKIP_NGINX:-0}" != "1" ]]; then
     install_nginx_site "${SCRIPT_DIR}/nginx/fair-crm.conf" "fair-crm"
+    # gzip + static cache rules; a preserved older site file gets the missing ones.
+    run_root bash "${SCRIPT_DIR}/apply-nginx-performance.sh"
     configure_nginx_domain
     REPORT_NGINX="installed/verified (${FAIR_CRM_DOMAIN})"
   fi

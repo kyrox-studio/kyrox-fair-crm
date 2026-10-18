@@ -1948,6 +1948,20 @@ check_nginx_site() {
   else
     check_fail "nginx /api/v1/fair-stand/ -> 127.0.0.1:8002"
   fi
+
+  # Static asset performance: missing rules are added by deploy-all.sh
+  # (apply-nginx-performance.sh), so a gap here is a warning, not a failure.
+  local perf_py="${FAIR_CRM_DIR:-${KYROX_ROOT}/kyrox-fair-crm}/scripts/server/nginx_performance.py"
+  if [[ -f "$site" && -f "$perf_py" ]] && python3 "$perf_py" --site "$site" --check-site >/dev/null 2>&1; then
+    check_pass "nginx static cache rules (/assets/ 1y, index.html no-cache, models/textures revalidate)"
+  else
+    check_warn_item "nginx static cache rules missing (run deploy-all.sh)"
+  fi
+  if run_root nginx -T 2>/dev/null | grep -Eq '^[[:space:]]*gzip_types[^#]*application/javascript'; then
+    check_pass "nginx gzip covers JS/CSS/JSON"
+  else
+    check_warn_item "nginx gzip does not cover JS (run deploy-all.sh)"
+  fi
 }
 
 wait_for_http_health() {

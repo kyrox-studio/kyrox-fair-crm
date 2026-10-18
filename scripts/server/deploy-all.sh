@@ -8,6 +8,7 @@
 #
 # Safe deploy contract (backup/restore compatible):
 #   - Git pull + dependency install + Playwright Chromium + frontend build + systemd/nginx reload
+#   - nginx: missing gzip and static cache rules are added (apply-nginx-performance.sh); existing lines stay
 #   - Alembic upgrade head on kyrox_core, fair_stand, and fair_crm (required after restore; non-destructive schema)
 #   - Fair Stand catalog rows stay as stored. Deploy does not delete or reseed them.
 #   - Backend restart via systemd (normal)
@@ -689,6 +690,7 @@ main() {
     step "Reload nginx"
     if command -v nginx >/dev/null 2>&1; then
       bash "${SCRIPT_DIR}/apply-nginx-upload-limit.sh"
+      bash "${SCRIPT_DIR}/apply-nginx-performance.sh"
       if run_root nginx -t >/dev/null 2>&1; then
         REPORT_NGINX_TEST="ok"
         run_root systemctl reload nginx
