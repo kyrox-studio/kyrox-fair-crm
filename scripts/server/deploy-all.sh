@@ -7,6 +7,8 @@
 # Run after bootstrap-server.sh on fresh servers, or alone for updates.
 #
 # Safe deploy contract (backup/restore compatible):
+#   - Git pull; when the pull changes deploy-all.sh or lib/common.sh, the script
+#     restarts itself once with the new version (KYROX_DEPLOY_REEXECED=1 guard)
 #   - Git pull + dependency install + Playwright Chromium + frontend build + systemd/nginx reload
 #   - nginx: missing gzip and static cache rules are added (apply-nginx-performance.sh); existing lines stay
 #   - Alembic upgrade head on kyrox_core, fair_stand, and fair_crm (required after restore; non-destructive schema)
@@ -114,6 +116,11 @@ REPORT_LOGIN_SMOKE="not run"
 REPORT_BACKUPS_SMOKE="not run"
 REPORT_SAFE_DEPLOY_RESTORE="not run"
 REPORT_PLAYWRIGHT_CHROMIUM="not run"
+if [[ "${KYROX_DEPLOY_REEXECED:-0}" == "1" ]]; then
+  REPORT_DEPLOY_SELF_UPDATE="restarted with updated deploy scripts"
+else
+  REPORT_DEPLOY_SELF_UPDATE="unchanged"
+fi
 REPORT_FINAL_STATUS="unknown"
 
 clone_or_update_repo() {
@@ -520,6 +527,7 @@ print_final_report() {
   echo "kyrox-core=${REPORT_CORE_HASH}"
   echo "fair-crm=${REPORT_FAIR_HASH}"
   echo "fair-stand=${REPORT_FAIR_STAND_HASH}"
+  echo "Deploy scripts: ${REPORT_DEPLOY_SELF_UPDATE}"
   echo ""
   echo "Core health: ${core_health_label}"
   echo "Fair Stand health: ${stand_health_label}"
@@ -581,6 +589,7 @@ log_deploy_safety_contract() {
   step "Deploy safety contract (backup/restore compatible)"
   log "Will run: git pull of each repo's origin default branch (core/crm/fair-stand), pip/npm install, Fair Stand pip + npm ci, Playwright Chromium install, alembic upgrade head (three DBs), systemd restart core then stand then crm"
   log "Will restore safe deploy scripts/templates before fair-crm git pull when locally modified"
+  log "Will restart once with the new deploy-all.sh/common.sh when the fair-crm pull changes them"
   log "Will not: drop/truncate DB, delete or reseed Fair Stand catalog rows, pg_restore, touch backups/ or restore data dirs, overwrite .env"
 }
 
@@ -615,8 +624,12 @@ main() {
   ensure_core_backend_env "$KYROX_CORE_DIR" || die "Cannot create Core backend .env at ${KYROX_CORE_DIR}/backend/.env"
 
   if [[ -d "${FAIR_CRM_DIR}/.git" ]]; then
+    local deploy_scripts_before
+    deploy_scripts_before="$(deploy_scripts_fingerprint "$FAIR_CRM_DIR")"
     restore_safe_fair_crm_deploy_files "$FAIR_CRM_DIR"
     clone_or_update_repo "$FAIR_CRM_DIR" "$(git -C "$FAIR_CRM_DIR" remote get-url origin)" "$FAIR_CRM_BRANCH" "${PROTECTED_FAIR_CRM_PATHS[@]}"
+    # Before any install/migration/restart, so the new version does that work once.
+    reexec_deploy_if_scripts_changed       "$FAIR_CRM_DIR" "$deploy_scripts_before" "${FAIR_CRM_DIR}/scripts/server/deploy-all.sh" "$@"
   else
     warn "Fair CRM repo not initialized at ${FAIR_CRM_DIR}; using working tree without git pull"
   fi

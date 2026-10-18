@@ -430,6 +430,48 @@ restore_safe_fair_crm_deploy_files() {
   ensure_fair_crm_server_scripts_executable "$dir"
 }
 
+# Bash has already parsed deploy-all.sh main() and sourced this file before the
+# fair-crm git pull, so the old deploy logic would keep running after an update.
+# These files are fingerprinted before the pull; when they change, deploy-all.sh
+# restarts itself once with the new version (KYROX_DEPLOY_REEXECED guards a loop).
+FAIR_CRM_DEPLOY_SELF_FILES=(
+  "scripts/server/deploy-all.sh"
+  "scripts/server/lib/common.sh"
+)
+
+deploy_scripts_fingerprint() {
+  local dir="$1"
+  local rel
+  for rel in "${FAIR_CRM_DEPLOY_SELF_FILES[@]}"; do
+    if [[ -f "${dir}/${rel}" ]]; then
+      printf '%s %s\n' "$(sha256sum "${dir}/${rel}" | cut -d' ' -f1)" "$rel"
+    else
+      printf 'missing %s\n' "$rel"
+    fi
+  done
+}
+
+reexec_deploy_if_scripts_changed() {
+  local dir="$1"
+  local before="$2"
+  local script="$3"
+  shift 3
+
+  local after
+  after="$(deploy_scripts_fingerprint "$dir")"
+  [[ "$after" != "$before" ]] || return 0
+
+  if [[ "${KYROX_DEPLOY_REEXECED:-0}" == "1" ]]; then
+    warn "Deploy scripts changed again after restart; continuing with the running version"
+    return 0
+  fi
+
+  step "Deploy scripts updated by git pull; restarting with the new version"
+  export KYROX_DEPLOY_REEXECED=1
+  # exec replaces this process; the EXIT trap does not fire, so no partial report.
+  exec bash "$script" "$@"
+}
+
 copy_env_if_missing() {
   local example="$1"
   local target="$2"
