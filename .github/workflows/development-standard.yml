@@ -12,16 +12,8 @@ on:
       - ".cursor/**"
       - "scripts/**"
       - ".github/workflows/development-standard.yml"
-  push:
-    branches:
-      - main
-    paths:
-      - "backend/**"
-      - "frontend/**"
-      - ".kyrox/**"
-      - ".cursor/**"
-      - "scripts/**"
-      - ".github/workflows/development-standard.yml"
+  # Merge sonrası main'de tekrar koşu yok: main zorunlu kontrol + strict kuralıyla korunur
+  # (kyrox-platform standards/quality/QUALITY_GATE_STANDARD.md §12, PR-only checks).
 
 concurrency:
   group: development-standard-${{ github.ref }}
