@@ -268,7 +268,7 @@ build_frontend() {
     return 0
   fi
 
-  # Node runtime must meet package engines before npm install/build.
+  # Kurulum ve build öncesinde Node sürümü paketlerin gereksinimini karşılamalıdır.
   if [[ "${SKIP_NODE:-0}" != "1" ]]; then
     ensure_nodejs
   else
@@ -281,14 +281,16 @@ build_frontend() {
     fi
   fi
 
-  step "Frontend npm install + build"
+  step "Frontend npm ci + build"
   require_fair_stand_source_for_crm_build
   REPORT_FAIR_STAND_SOURCE="PASS"
   require_cmd npm
   (
     cd "${FAIR_CRM_DIR}/frontend"
-    npm install
+    # Yeni paketleri repodaki lockfile'dan kur; sunucuda lockfile yeniden yazılmasın.
+    npm ci
     npm run build
+    git diff --exit-code -- package.json package-lock.json
   )
   REPORT_FRONTEND_BUILD="success"
 
